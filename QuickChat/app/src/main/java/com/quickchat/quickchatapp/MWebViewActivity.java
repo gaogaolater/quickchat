@@ -1,21 +1,17 @@
 package com.quickchat.quickchatapp;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.SharedPreferences;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
-import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-import com.google.android.gms.appindexing.Action;
-import com.google.android.gms.appindexing.AppIndex;
-import com.google.android.gms.common.api.GoogleApiClient;
 import com.quickchat.speex.SpeexPlayer;
 import com.quickchat.speex.SpeexRecorder;
 
@@ -23,10 +19,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
-import java.util.Timer;
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -39,7 +32,7 @@ import okhttp3.Response;
 
 public class MWebViewActivity extends Activity {
     WebView wv;
-    private String urlHeader = "http://121.42.186.141:3000/chat";
+    private String urlHeader = "http://121.42.186.141:3000";
     //private String urlHeader = "http://192.168.199.122:3000";
 
     @Override
@@ -85,12 +78,30 @@ public class MWebViewActivity extends Activity {
             wv = activity.wv;
         }
 
+        private boolean downloading = false;
+
+        /**
+         * 从网络播放
+         *
+         * @param fileName
+         */
         @JavascriptInterface
-        public void startPlay(String fileName) {
+        public void startPlay(final String fileName) {
+            if (downloading == true) return;
             if (splayer != null && splayer.isPlaying()) {
                 splayer.stop();
                 splayer = null;
             }
+            final SharedPreferences cache = activity.getSharedPreferences("speex", Context.MODE_PRIVATE);
+            String cachedPath = cache.getString(fileName, "");
+            if (!"".equals(cachedPath)) {
+                splayer = new SpeexPlayer(cachedPath);
+                splayer.startPlay();
+                Log.i("play", "缓存");
+                return;
+            }
+            downloading = true;
+            Log.i("play", "非缓存");
             String filePath = urlHeader + "/public/upload/" + fileName + ".spx";
             Request request = new Request.Builder()
                     .url(filePath)
@@ -117,9 +128,6 @@ public class MWebViewActivity extends Activity {
                             fos.write(buf, 0, len);
                         }
                         fos.flush();
-                        SharedPreferences.Editor editor = sp.edit();
-                        editor.putString("path", filePath);
-                        editor.commit();
                         Log.d("h_bl", "文件下载成功");
                     } catch (Exception e) {
                         Log.d("h_bl", "文件下载失败");
@@ -130,9 +138,23 @@ public class MWebViewActivity extends Activity {
                             fos.close();
                         splayer = new SpeexPlayer(filePath);
                         splayer.startPlay();
+                        SharedPreferences.Editor editor = cache.edit();
+                        editor.putString(fileName, filePath);
+                        editor.commit();
+                        downloading = false;
                     }
                 }
             });
+        }
+
+        /**
+         * 本地播放
+         *
+         * @param path 本地路径
+         */
+        private void startPlayForLocal(String path) {
+            splayer = new SpeexPlayer(path);
+            splayer.startPlay();
         }
 
         @JavascriptInterface
@@ -172,7 +194,7 @@ public class MWebViewActivity extends Activity {
                         }
                         boolean tf = new File(fileName).exists();
                         if (tf) {
-                            //startPlay(fileName);
+                            //startPlayForLocal(fileName);
                             upload(fileName, socketid);
                         }
                     }
