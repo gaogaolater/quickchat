@@ -27,14 +27,9 @@ public class SpeexPlayer {
 	}
 
 	public void startPlay() {
-		if(speexdec.isPaused()){
-			speexdec.setPaused(false);
-		}
-		else{
-			RecordPlayThread rpt = new RecordPlayThread();
-			playThread = new Thread(rpt);
-			playThread.start();
-		}
+		RecordPlayThread rpt = new RecordPlayThread();
+		playThread = new Thread(rpt);
+		playThread.start();
 	}
 
 	public boolean isPlaying(){
